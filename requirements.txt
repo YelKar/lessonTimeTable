@@ -1,0 +1,6 @@
+pyTelegramBotApi
+
+ydb[yc]~=2.12.1
+ydb~=2.12.1
+six~=1.16.0
+python-dotenv~=0.21.1
