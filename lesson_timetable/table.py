@@ -101,6 +101,7 @@ class TimeTable:
 
     @classmethod
     def de_json(cls, json_table: Dict | str):
+        # TODO При неверном названии дня должно быть исключение DecodeError (122 строка)
         if isinstance(json_table, str):
             try:
                 json_table = json.loads(json_table)
