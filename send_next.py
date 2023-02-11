@@ -6,20 +6,22 @@ if __name__ == '__main__':
 
 from telebot import TeleBot
 
-from util.db import Tables
+from util.db import Next
 from util.response import lesson
 
 
 bot = TeleBot(os.getenv("TOKEN"), parse_mode="HTML")
-tables = Tables()
+db = Next()
 
 
-def send_next(user_ids: list[int]):
-    for user_id in user_ids:
-        table = tables.get(user_id)
+def send_next():
+    next_lesson = None
+    for row in db.get():
+        user_id = row["id"]
+        table = row["timetable"]
         if table and (next_lesson := table.next()) and next_lesson.start > table.today().start:
-            bot.send_message(user_id, lesson(next_lesson))
+            bot.send_message(user_id, lesson(next_lesson, "Напоминание\nСледующий урок:\n"))
 
 
 if __name__ == '__main__':
-    send_next([1884965431])
+    send_next()

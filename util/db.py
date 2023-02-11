@@ -11,6 +11,7 @@ if __name__ == '__main__':
 
     load_dotenv("./.env")
 
+
 config = {
     "database": os.getenv("database"),
     "endpoint": os.getenv("endpoint"),
@@ -19,7 +20,7 @@ config = {
 my_id = 1884965431
 
 
-class Tables:
+class DB:
     def __init__(self, driver_config: ydb.DriverConfig | None = None):
         self.driver_config = driver_config or ydb.DriverConfig(
             **config,
@@ -28,14 +29,19 @@ class Tables:
             ),
             root_certificates=ydb.load_ydb_root_certificate()
         )
+        self.route = "./util/queries/{name}.yql"
 
+    def query(self, name: str):
+        with open(self.route.format(name=name), "r", encoding="utf-8") as file:
+            return file.read().strip()
+
+
+class Tables(DB):
     def set(self, user_id: int, table: str | TimeTable):
-        with open("./util/queries/set.yql") as f:
-            query = f.read()
         with ydb.Driver(self.driver_config) as driver:
             driver.wait(fail_fast=True, timeout=5)
             session = driver.table_client.session().create()
-            compiled_query = session.prepare(query)
+            compiled_query = session.prepare(self.query("setTable"))
             session.transaction().execute(
                 compiled_query,
                 {
@@ -66,6 +72,40 @@ class Tables:
             return table
 
 
+class Next(DB):
+    def get(self):
+        with ydb.Driver(self.driver_config) as driver:
+            driver.wait(fail_fast=True, timeout=5)
+            session = driver.table_client.session().create()
+
+            resp: _ResultSet = session.transaction().execute(
+                self.query("sendNext"),
+                commit_tx=True
+            )[0]
+        for row in resp.rows:
+            yield dict(id=row["id"], timetable=TimeTable.de_json(row["timetable"]))
+
+    def add(self, user_id):
+        with ydb.Driver(self.driver_config) as driver:
+            driver.wait(fail_fast=True, timeout=5)
+            session = driver.table_client.session().create()
+            session.transaction().execute(
+                f"REPLACE INTO `send_next` (id) VALUES ({user_id});",
+                commit_tx=True
+            )
+
+    def remove(self, *user_ids):
+        with ydb.Driver(self.driver_config) as driver:
+            driver.wait(fail_fast=True, timeout=5)
+            session = driver.table_client.session().create()
+            session.transaction().execute(
+                f"DELETE FROM `send_next` WHERE id in {tuple(user_ids)};",
+                commit_tx=True
+            )
+
+
 if __name__ == '__main__':
-    tables = Tables()
-    print(tables.get(188496541))
+    os.chdir("../")
+    send_next = Next()
+    # print(*send_next.get(), sep="\n\n\n")
+    print(*send_next.get())

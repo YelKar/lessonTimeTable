@@ -7,7 +7,7 @@ from telebot.types import Message, CallbackQuery, InputFile
 
 from util import response
 from util.const import START, json_msg, json_for_msg
-from util.db import Tables
+from util.db import Tables, Next
 from util.tools import get_weekdays_kb, kb_for_json_examples, default_table
 
 from lesson_timetable.table import TimeTable, DecodeError
@@ -186,3 +186,19 @@ def download_my_json(call: CallbackQuery | Message):
             "read": lambda *_: table.to_json(indent=2)
         }
     )())
+
+
+@bot.message_handler(commands=["send_next"])
+def set_send_next(message: Message):
+    db = Next()
+    db.add(message.chat.id)
+
+    bot.reply_to(message, "Теперь каждый час вам будут приходить напоминания о следующем уроке (Если он будет)")
+
+
+@bot.message_handler(commands=["not_send_next"])
+def unset_send_next(message: Message):
+    db = Next()
+    db.remove(message.chat.id)
+
+    bot.reply_to(message, "Напоминания отключены")

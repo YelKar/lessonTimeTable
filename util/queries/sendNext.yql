@@ -1,0 +1,4 @@
+$ids = (SELECT id FROM `send_next`);
+
+
+SELECT * FROM `tables` WHERE id IN $ids AND timetable is not NULL;
