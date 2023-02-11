@@ -3,7 +3,7 @@ def handler(event, context):
     match event:
         case {"messages": [{"details": {"trigger_id": tid}}, *_]}:
             from send_next import send_next
-            send_next([1884965431])
+            send_next()
         case {"httpMethod": "POST", "body": str(msg_json)} if "message" in msg_json:
             from telebot.types import Update
             from bot import bot
