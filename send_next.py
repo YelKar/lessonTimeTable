@@ -1,7 +1,5 @@
 import os
 
-from util.tools import get_table
-
 if __name__ == '__main__':
     from dotenv import load_dotenv
     load_dotenv("util/.env")
@@ -18,8 +16,8 @@ tables = Tables()
 
 def send_next(user_ids: list[int]):
     for user_id in user_ids:
-        table = get_table(user_id)
-        if (next_lesson := table.next()).start > table.today().start:
+        table = tables.get(user_id)
+        if table and (next_lesson := table.next()) and next_lesson.start > table.today().start:
             bot.send_message(user_id, lesson(next_lesson))
 
 

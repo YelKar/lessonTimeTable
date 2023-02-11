@@ -1,5 +1,4 @@
 import os
-import pickle
 
 import ydb.iam
 from ydb.convert import _ResultSet
@@ -30,50 +29,43 @@ class Tables:
             root_certificates=ydb.load_ydb_root_certificate()
         )
 
-    def set(self, user_id: int, table: TimeTable | str):
-        table_hex = pickle.dumps(table).hex() if isinstance(table, TimeTable) else table
-        query = ("UPSERT INTO `tables` (id, timetable) "
-                 "VALUES ({id}, \"{table}\");")
+    def set(self, user_id: int, table: str | TimeTable):
+        with open("./util/queries/set.yql") as f:
+            query = f.read()
         with ydb.Driver(self.driver_config) as driver:
             driver.wait(fail_fast=True, timeout=5)
             session = driver.table_client.session().create()
-
+            compiled_query = session.prepare(query)
             session.transaction().execute(
-                query.format(id=user_id, table=table_hex),
+                compiled_query,
+                {
+                    "$id": user_id,
+                    "$json": table.to_json() if isinstance(table, TimeTable) else table
+                },
                 commit_tx=True
             )
 
-    def get(self, *user_ids):
-        if user_ids:
-            query = "\n".join(f"SELECT id, timetable FROM `tables` WHERE id={user_id};" for user_id in user_ids)
-        else:
-            query = "SELECT id, timetable FROM `tables`"
+    def get(self, user_id, res_type: type = TimeTable) -> TimeTable | str | None:
+        query = "SELECT timetable FROM `tables` WHERE id={id}"
         with ydb.Driver(self.driver_config) as driver:
             driver.wait(fail_fast=True, timeout=5)
             session = driver.table_client.session().create()
 
             resp: list[_ResultSet] = session.transaction().execute(
-                query.format(id=1),
+                query.format(id=user_id),
                 commit_tx=True
             )
-        result = []
-        for r, user_id in zip(resp, user_ids):
-            for row in r.rows:
-                result.append(
-                    dict(
-                        user_id=row["id"],
-                        table=pickle.loads(
-                            bytes.fromhex(row["timetable"].decode())
-                        )
-                    )
-                )
-            if not r.rows:
-                default_table = self.get(my_id)[0]["table"]
-                self.set(user_id, default_table)
-                result.append(dict(user_id=user_id, table=default_table))
-        return result
+            rows = resp[0].rows
+            if not rows:
+                return None
+            row = rows[0]
+            table = row["timetable"]
+        if res_type is TimeTable:
+            return TimeTable.de_json(table)
+        else:
+            return table
 
 
 if __name__ == '__main__':
     tables = Tables()
-    print(tables.get(18849654, 1884965431))
+    print(tables.get(188496541))

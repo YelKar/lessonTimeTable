@@ -1,18 +1,11 @@
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from typing import Sized
-
-from util.db import Tables
 from lesson_timetable.table import TimeTable
 
-tables = Tables()
 
-
-def get_table(user_id: int) -> TimeTable:
-    return tables.get(user_id)[0]["table"]
-
-
-def set_table(user_id: int, table: TimeTable):
-    tables.set(user_id, table)
+def default_table() -> TimeTable:
+    with open("./util/default.json", "r", encoding="utf-8") as table:
+        return TimeTable.de_json(table.read())
 
 
 def get_weekdays_kb(_table: TimeTable):
@@ -35,6 +28,12 @@ def _chunks(_iter: Sized, step: int):
 def kb_for_json_examples():
     keyboard = InlineKeyboardMarkup()
     keyboard.add(
-        InlineKeyboardButton("Скачать", callback_data="download_json_example")
+        InlineKeyboardButton("Пример", callback_data="download_json_example"),
+    )
+    keyboard.add(
+        InlineKeyboardButton(
+            "Скачать мое расписание",
+            callback_data="download_my_json"
+        )
     )
     return keyboard

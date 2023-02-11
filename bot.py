@@ -7,35 +7,53 @@ from telebot.types import Message, CallbackQuery, InputFile
 
 from util import response
 from util.const import START, json_msg, json_for_msg
-from util.tools import get_weekdays_kb, get_table, set_table, kb_for_json_examples
+from util.db import Tables
+from util.tools import get_weekdays_kb, kb_for_json_examples, default_table
 
-from lesson_timetable.table import TimeTable
+from lesson_timetable.table import TimeTable, DecodeError
 
 
 bot = TeleBot(os.getenv("TOKEN"), parse_mode="HTML")
 
 
+tables = Tables()
+
+
 @bot.message_handler(commands=["start", "help", "h"])
 def start(message: Message):
-    kb = get_weekdays_kb(get_table(message.from_user.id))
+    table = tables.get(message.from_user.id)
+    if table is None:
+        table = default_table()
+        tables.set(message.from_user.id, table)
+    kb = get_weekdays_kb(table)
     bot.send_message(message.chat.id, START, reply_markup=kb)
 
 
 @bot.message_handler(commands=["now"])
 def current_lesson(message: Message):
-    table = get_table(message.from_user.id)
+    table = tables.get(message.from_user.id)
     now = datetime.now(table.timezone)
     today = table.today(now)
-    if today and now.time() > today.end:
-        bot.reply_to(message, "Уроки закончились")
-    elif today is None:
+    if today is None:
         bot.reply_to(message, "Сегодня нет уроков")
+    elif (now_time := now.time()) > today.end:
+        bot.reply_to(message, "Уроки закончились")
+    elif now_time < today.start:
+        bot.reply_to(
+            message,
+            response.lesson(
+                today.next(now_time),
+                "Уроки ещё не начались\n"
+                "Первый урок:\n"
+            )
+        )
     elif (curr_lesson := today.now(now.time())) is None:
         bot.reply_to(
             message,
             response.lesson(
-                today.next(now.time()),
-                "Перемена\nСледующий урок:\n"
+                today.next(now_time),
+                "Перемена\n"
+                "Следующий урок:\n"
             )
         )
     else:
@@ -50,13 +68,13 @@ def current_lesson(message: Message):
 
 @bot.message_handler(commands=["next"])
 def next_lesson(message: Message):
-    table = get_table(message.from_user.id)
+    table = tables.get(message.from_user.id)
     now = datetime.now(table.timezone)
     if not (today := table.today(now)):
         bot.reply_to(message, "Сегодня нет уроков")
-    elif resp := response.lesson(today.next(now.time()), "Следующий урок:\n"):
-        bot.reply_to(message, resp)
-    elif today.now(now.time()):
+    elif next_ := today.next(now := now.time()):
+        bot.reply_to(message, response.lesson(next_, "Следующий урок:\n"))
+    elif today.now(now):
         bot.reply_to(message, "Идет последний урок")
     else:
         bot.reply_to(message, "Уроки закончились")
@@ -64,7 +82,7 @@ def next_lesson(message: Message):
 
 @bot.message_handler(commands=["today"])
 def lessons_today(message: Message):
-    table = get_table(message.from_user.id)
+    table = tables.get(message.from_user.id)
     now = datetime.now(table.timezone)
     today = table.today(now)
     if today:
@@ -76,7 +94,7 @@ def lessons_today(message: Message):
 
 @bot.message_handler(commands=["tomorrow"])
 def lessons_tomorrow(message: Message):
-    table = get_table(message.from_user.id)
+    table = tables.get(message.from_user.id)
     now = datetime.now(table.timezone)
     tmr = table.tomorrow(now)
     if not tmr:
@@ -88,7 +106,7 @@ def lessons_tomorrow(message: Message):
 
 @bot.message_handler(commands=["dayend"])
 def until_day_end(message: Message):
-    table = get_table(message.from_user.id)
+    table = tables.get(message.from_user.id)
     now = datetime.now(table.timezone)
     today = table.today(now)
     if not today:
@@ -101,41 +119,70 @@ def until_day_end(message: Message):
 
 @bot.message_handler(commands=["week", "table"])
 def week(message: Message):
-    table = get_table(message.from_user.id)
+    table = tables.get(message.from_user.id)
     bot.reply_to(message, response.week(table))
 
 
 @bot.message_handler(commands=["load_table"])
 def load_json(message: Message):
-    bot.send_message(
-        message.chat.id,
-        json_msg.format(
-            json=json.dumps(
-                json_for_msg,
-                indent=2,
-                ensure_ascii=False
+    match message.text.split()[1:]:
+        case [mode, "default"]:
+            with open("./util/default.json", "r", encoding="utf-8") as def_table:
+                match mode:
+                    case "get":
+                        bot.send_document(message.from_user.id, def_table)
+                    case "set":
+                        tables.set(message.from_user.id, def_table.read().strip())
+        case ["get", "my"]:
+            download_my_json(message)
+        case _:
+            bot.send_message(
+                message.chat.id,
+                json_msg.format(
+                    json=json.dumps(
+                        json_for_msg,
+                        indent=2,
+                        ensure_ascii=False
+                    )
+                ),
+                reply_markup=kb_for_json_examples()
             )
-        ),
-        reply_markup=kb_for_json_examples()
-    )
 
 
 @bot.message_handler(content_types=["document"], func=lambda msg: "/load_table" in msg.caption)
 def load_table(message: Message):
     file_id = message.document.file_id
     file_obj = bot.get_file(file_id)
-    table = TimeTable.de_json(bot.download_file(file_obj.file_path).decode())
+    table_json = bot.download_file(file_obj.file_path).decode()
 
-    set_table(message.from_user.id, table)
+    try:
+        table = TimeTable.de_json(table_json)
+    except DecodeError:
+        bot.reply_to(message, "Неверный JSON файл")
+    else:
+        tables.set(message.from_user.id, table)
+        bot.reply_to(message, "Расписание установлено")
 
 
 @bot.callback_query_handler(lambda call: call.data.endswith("weekday"))
 def weekday_callback(call: CallbackQuery):
     day = call.data.split("_")[0]
-    table = get_table(call.from_user.id)
+    table = tables.get(call.from_user.id)
     bot.send_message(call.from_user.id, response.day(table[day]))
 
 
 @bot.callback_query_handler(lambda call: call.data.startswith("download_json"))
 def download_json_examples(call: CallbackQuery):
     bot.send_document(call.from_user.id, InputFile("./util/json_examples/example.json"))
+
+
+@bot.callback_query_handler(lambda call: call.data == "download_my_json")
+def download_my_json(call: CallbackQuery | Message):
+    table = tables.get(call.from_user.id)
+    bot.send_document(call.from_user.id, type(
+        "json_file", (),
+        {
+            "name": "table.json",
+            "read": lambda *_: table.to_json(indent=2)
+        }
+    )())

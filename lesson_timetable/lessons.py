@@ -12,14 +12,14 @@ class Lesson:
             duration: timedelta | int | None = None
     ):
         if isinstance(duration, int):
-            self.duration = timedelta(duration)
+            self.duration = timedelta(minutes=duration)
         else:
             self.duration = duration or timedelta(minutes=45)
-        self.name = name
-        self.start = start
-        self.stop = (datetime.combine(datetime.now(), self.start) + self.duration).time()
-        self.teacher = teacher
-        self.classroom = classroom
+        self.name: str = name
+        self.start: time = start
+        self.stop: time = (datetime.combine(datetime.now(), self.start) + self.duration).time()
+        self.teacher: str = teacher
+        self.classroom: int = classroom
 
     def __repr__(self):
         return f"<Lesson {self}>"

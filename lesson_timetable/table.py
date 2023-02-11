@@ -102,7 +102,10 @@ class TimeTable:
     @classmethod
     def de_json(cls, json_table: Dict | str):
         if isinstance(json_table, str):
-            json_table = json.loads(json_table)
+            try:
+                json_table = json.loads(json_table)
+            except json.JSONDecodeError as e:
+                raise DecodeError(e.msg, e.doc, e.pos)
 
         for name, day in json_table.items():
             for i, lesson in enumerate(day):
@@ -118,6 +121,35 @@ class TimeTable:
             json_table[name] = cls.__Day(*day)
         return cls(**json_table)
 
+    def to_json(self, indent: str | int | None = None) -> str:
+        """return json of timetable
+        format:
+            {
+                "<day>": [  // weekday
+                    [
+                        "<lesson_name>",
+                        "<start_time>",
+                        duration,  // int => minutes
+                        "<teacher>",
+                        classroom  // int
+                    ]
+                ]
+            }
+        """
+        result: dict[str, list[list[int | str | None]]] = {}
+        for name, day in self.dict.items():
+            result[name] = [
+                [
+                    lesson.name,
+                    lesson.start.strftime("%H:%M"),
+                    lesson.duration.seconds // 60,
+                    lesson.teacher,
+                    lesson.classroom
+                ]
+                for lesson in day
+            ]
+        return json.dumps(result, ensure_ascii=False, indent=indent)
+
 
 class EmptyDayError(Exception):
     def __init__(self, day):
@@ -125,6 +157,10 @@ class EmptyDayError(Exception):
 
     def __str__(self):
         return f"day {self.day} is not specified"
+
+
+class DecodeError(json.JSONDecodeError):
+    pass
 
 
 if __name__ == '__main__':

@@ -1,0 +1,7 @@
+DECLARE $id as Uint64;
+DECLARE $json as JSON;
+
+
+REPLACE INTO
+    `tables` (id, timetable)
+    VALUES ($id, $json);
