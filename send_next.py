@@ -6,9 +6,11 @@ if __name__ == '__main__':
 
 from telebot import TeleBot
 
-from util.db import Next
+from util.db import Next, Tables
 from util.response import lesson
 
+
+tables = Tables()
 
 bot = TeleBot(os.getenv("TOKEN"), parse_mode="HTML")
 db = Next()
@@ -16,8 +18,17 @@ db = Next()
 
 def send_next(*user_ids):
     # TODO создать историю, чтобы один урок не присылался два раза
+    if user_ids:
+        rows = [
+            {
+                "id": user_id,
+                "timetable": table
+             } for user_id, table in zip(user_ids, tables.get(*user_ids, res_type=list))
+        ]
+    else:
+        rows = db.get()
     next_lesson = None
-    for row in user_ids or db.get():
+    for row in rows:
         user_id = row["id"]
         table = row["timetable"]
         if table and (next_lesson := table.next()) and next_lesson.start > table.today().start:
@@ -32,4 +43,5 @@ def send_next(*user_ids):
 
 
 if __name__ == '__main__':
-    send_next()
+    from util.const import my_id
+    send_next(my_id)

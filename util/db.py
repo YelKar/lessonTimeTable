@@ -49,17 +49,22 @@ class Tables(DB):
                 commit_tx=True
             )
 
-    def get(self, user_id, res_type: type = TimeTable) -> TimeTable | str | None:
-        query = "SELECT timetable FROM `tables` WHERE id={id}"
+    def get(self, *user_ids, res_type: type = TimeTable) -> TimeTable | str | list | None:
+        query = f"SELECT timetable FROM `tables` WHERE id in {tuple(user_ids)}"
         with ydb.Driver(self.driver_config) as driver:
             driver.wait(fail_fast=True, timeout=5)
             session = driver.table_client.session().create()
 
             resp: list[_ResultSet] = session.transaction().execute(
-                query.format(id=user_id),
+                query,
                 commit_tx=True
             )
             rows = resp[0].rows
+            if res_type is list:
+                if res_type is list:
+                    rows = list(map(lambda row_: TimeTable.de_json(row_["timetable"]), rows))
+                return rows or []
+
             if not rows:
                 return None
             row = rows[0]
@@ -117,3 +122,5 @@ if __name__ == '__main__':
     send_next = Next()
     # print(*send_next.get(), sep="\n\n\n")
     print(send_next.is_set(1884965431))
+    tables = Tables()
+    print(tables.get(1884965431, res_type=list[str]))
