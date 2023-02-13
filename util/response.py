@@ -22,6 +22,8 @@ def day(_day: _Day, head: str | None = None):
 
 
 def lesson(_lesson: _Lesson, head: str | None = None):
+    # Не отображать секунды
+    # Добавить строковые переменные
     if not _lesson:
         return ""
     return (
