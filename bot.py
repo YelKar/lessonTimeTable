@@ -151,6 +151,7 @@ def load_json(message: Message):
 
 @bot.message_handler(content_types=["document"], func=lambda msg: "/load_table" in msg.caption)
 def load_table(message: Message):
+    # TODO добавить отловщик редактирования сообщений
     file_id = message.document.file_id
     file_obj = bot.get_file(file_id)
     table_json = bot.download_file(file_obj.file_path).decode()
