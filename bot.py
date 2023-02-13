@@ -192,6 +192,7 @@ def download_my_json(call: CallbackQuery | Message):
 
 @bot.message_handler(commands=["send_next"])
 def set_send_next(message: Message):
+    # TODO Вынести в Callback
     db = Next()
     db.add(message.chat.id)
 
@@ -200,6 +201,7 @@ def set_send_next(message: Message):
 
 @bot.message_handler(commands=["not_send_next"])
 def unset_send_next(message: Message):
+    # TODO Вынести в Callback
     db = Next()
     db.remove(message.chat.id)
 
