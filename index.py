@@ -4,6 +4,10 @@ def handler(event, context):
         case {"messages": [{"details": {"trigger_id": tid}}, *_]}:
             from send_next import send_next
             send_next()
+        case "test_remind":
+            from send_next import send_next
+            from util.const import my_id
+            send_next(my_id)
         case {"httpMethod": "POST", "body": str(msg_json)} if "message" in msg_json:
             from telebot.types import Update
             from bot import bot

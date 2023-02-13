@@ -14,16 +14,21 @@ bot = TeleBot(os.getenv("TOKEN"), parse_mode="HTML")
 db = Next()
 
 
-def send_next():
+def send_next(*user_ids):
     # TODO создать историю, чтобы один урок не присылался два раза
-    # TODO вынести название урока в начало сообщения
-    # TODO добавить тестовые запросы помимо триггера
     next_lesson = None
-    for row in db.get():
+    for row in user_ids or db.get():
         user_id = row["id"]
         table = row["timetable"]
         if table and (next_lesson := table.next()) and next_lesson.start > table.today().start:
-            bot.send_message(user_id, lesson(next_lesson, "Напоминание\nСледующий урок:\n"))
+            bot.send_message(
+                user_id,
+                lesson(
+                    next_lesson,
+                    "</u>{name} с {start} в {classroom} Кабинете<u>\n\n"
+                    "Напоминание\nСледующий урок:\n"
+                )
+            )
 
 
 if __name__ == '__main__':

@@ -17,8 +17,6 @@ config = {
     "endpoint": os.getenv("endpoint"),
 }
 
-my_id = 1884965431
-
 
 class DB:
     def __init__(self, driver_config: ydb.DriverConfig | None = None):
@@ -103,9 +101,19 @@ class Next(DB):
                 commit_tx=True
             )
 
+    def is_set(self, user_id: int) -> bool:
+        with ydb.Driver(self.driver_config) as driver:
+            driver.wait(fail_fast=True, timeout=5)
+            session = driver.table_client.session().create()
+            resp: _ResultSet = session.transaction().execute(
+                f"SELECT id FROM `send_next` WHERE id = {user_id};",
+                commit_tx=True
+            )[0]
+            return resp.rows is not None
+
 
 if __name__ == '__main__':
     os.chdir("../")
     send_next = Next()
     # print(*send_next.get(), sep="\n\n\n")
-    print(*send_next.get())
+    print(send_next.is_set(1884965431))

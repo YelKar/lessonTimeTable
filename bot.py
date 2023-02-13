@@ -6,9 +6,9 @@ from telebot import TeleBot
 from telebot.types import Message, CallbackQuery, InputFile
 
 from util import response
-from util.const import START, json_msg, json_for_msg
+from util.const import START, json_msg, json_for_msg, remind_doc
 from util.db import Tables, Next
-from util.tools import get_weekdays_kb, kb_for_json_examples, default_table
+from util.tools import KeyBoard, default_table
 
 from lesson_timetable.table import TimeTable, DecodeError
 
@@ -25,7 +25,7 @@ def start(message: Message):
     if table is None:
         table = default_table()
         tables.set(message.from_user.id, table)
-    kb = get_weekdays_kb(table)
+    kb = KeyBoard.weekdays(table)
     bot.send_message(message.chat.id, START, reply_markup=kb)
 
 
@@ -145,13 +145,15 @@ def load_json(message: Message):
                         ensure_ascii=False
                     )
                 ),
-                reply_markup=kb_for_json_examples()
+                reply_markup=KeyBoard.json_examples()
             )
 
 
-@bot.message_handler(content_types=["document"], func=lambda msg: "/load_table" in msg.caption)
+@bot.edited_message_handler(content_types=["document"],
+                            func=lambda msg: msg.caption and "/load_table" in msg.caption)
+@bot.message_handler(content_types=["document"],
+                     func=lambda msg: msg.caption and "/load_table" in msg.caption)
 def load_table(message: Message):
-    # TODO добавить отловщик редактирования сообщений
     file_id = message.document.file_id
     file_obj = bot.get_file(file_id)
     table_json = bot.download_file(file_obj.file_path).decode()
@@ -174,8 +176,8 @@ def weekday_callback(call: CallbackQuery):
 
 @bot.callback_query_handler(lambda call: call.data.startswith("download_json"))
 def download_json_examples(call: CallbackQuery):
-    # TODO добавить возможность скачать моё расписание
-    bot.send_document(call.from_user.id, InputFile("./util/json_examples/example.json"))
+    name = "_".join(call.data.split("_")[2:])
+    bot.send_document(call.from_user.id, InputFile(f"./util/json_examples/{name}.json"))
 
 
 @bot.callback_query_handler(lambda call: call.data == "download_my_json")
@@ -190,19 +192,45 @@ def download_my_json(call: CallbackQuery | Message):
     )())
 
 
-@bot.message_handler(commands=["send_next"])
-def set_send_next(message: Message):
-    # TODO Вынести в Callback
+@bot.message_handler(commands=["remind"])
+def remind(message: Message):
+    bot.send_message(
+        message.chat.id,
+        remind_doc,
+        reply_markup=KeyBoard.send_next()
+    )
+
+
+@bot.callback_query_handler(lambda call: call.data.endswith("remind"))
+def chose_send_next_mode(call: CallbackQuery):
     db = Next()
-    db.add(message.chat.id)
-
-    bot.reply_to(message, "Теперь каждый час вам будут приходить напоминания о следующем уроке (Если он будет)")
-
-
-@bot.message_handler(commands=["not_send_next"])
-def unset_send_next(message: Message):
-    # TODO Вынести в Callback
-    db = Next()
-    db.remove(message.chat.id)
-
-    bot.reply_to(message, "Напоминания отключены")
+    chat_id = call.from_user.id
+    match call.data.split("_")[0]:
+        case "set":
+            db.add(chat_id)
+            bot.send_message(
+                chat_id,
+                "Теперь каждый час вам будут приходить напоминания "
+                "о следующем уроке (Если он будет)"
+            )
+        case "unset":
+            db.remove(chat_id)
+            bot.send_message(chat_id, "Напоминания отключены")
+        case "get":
+            bot.send_message(
+                chat_id,
+                ["Напоминания отключены", "Напоминания включены"][db.is_set(chat_id)]
+            )
+        case "test":
+            table = tables.get(chat_id)
+            next_lesson_ = None
+            if table and (next_lesson_ := table.next()) and next_lesson_.start > table.today().start:
+                bot.send_message(
+                    chat_id,
+                    response.lesson(next_lesson_, "Напоминание\nСледующий урок:\n")
+                )
+            else:
+                bot.send_message(
+                    chat_id,
+                    "Урока нет. В таком случае напоминание не придет."
+                )

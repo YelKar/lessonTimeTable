@@ -8,32 +8,59 @@ def default_table() -> TimeTable:
         return TimeTable.de_json(table.read())
 
 
-def get_weekdays_kb(_table: TimeTable):
-    keyboard = InlineKeyboardMarkup()
-    for row in _chunks(list(_table.dict.items()), 2):
-        keyboard.add(
-            *(
-                InlineKeyboardButton(day.name, callback_data=f"{name}_weekday")
-                for name, day in row
-            )
-        )
-    return keyboard
-
-
 def _chunks(_iter: Sized, step: int):
     for i in range(0, len(_iter), step):
         yield _iter[i:i + step]
 
 
-def kb_for_json_examples():
-    keyboard = InlineKeyboardMarkup()
-    keyboard.add(
-        InlineKeyboardButton("Пример", callback_data="download_json_example"),
-    )
-    keyboard.add(
-        InlineKeyboardButton(
-            "Скачать мое расписание",
-            callback_data="download_my_json"
+class KeyBoard:
+    Inline = InlineKeyboardMarkup
+    IButton = InlineKeyboardButton
+    
+    @classmethod
+    def json_examples(cls):
+        kb = cls.Inline()
+        kb.add(
+            cls.IButton(
+                "Пример",
+                callback_data="download_json_example"
+            ),
         )
-    )
-    return keyboard
+        kb.add(
+            cls.IButton(
+                "Мое расписание",
+                callback_data="download_my_json"
+            )
+        )
+        kb.add(
+            cls.IButton(
+                "Пример заполненного расписание",
+                callback_data="download_json_full_example"
+            )
+        )
+        return kb
+
+    @classmethod
+    def weekdays(cls, _table: TimeTable):
+        kb = cls.Inline()
+        for row in _chunks(list(_table.dict.items()), 2):
+            kb.add(
+                *(
+                    cls.IButton(day.name, callback_data=f"{name}_weekday")
+                    for name, day in row
+                )
+            )
+        return kb
+
+    @classmethod
+    def send_next(cls):
+        kb = cls.Inline()
+        kb.add(
+            cls.IButton("Включить", callback_data="set_remind"),
+            cls.IButton("Выключить", callback_data="unset_remind"),
+        )
+        kb.add(
+            cls.IButton("Проверить", callback_data="get_remind"),
+            cls.IButton("Тест", callback_data="test_remind"),
+        )
+        return kb

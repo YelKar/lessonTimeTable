@@ -26,13 +26,17 @@ def lesson(_lesson: _Lesson, head: str | None = None):
     # Добавить строковые переменные
     if not _lesson:
         return ""
+    res = {
+        k: (v if v is not None else "____")
+        for k, v in _lesson.__dict__.items()
+    }
     return (
-        ("<b><u>{head}</u></b>\n" if head else "") +
+        (f"<b><u>{head}</u></b>\n" if head else "") +
         ("<u>{name}</u>\n" if _lesson.name else "Название не указано\n") +
         "{start} - {stop}\n" +
         ("{teacher}\n" if _lesson.teacher else "") +
         ("Кабинет: {classroom}\n" if _lesson.classroom else "")
-    ).format(**_lesson.__dict__, head=head)
+    ).format(**res)
 
 
 if __name__ == '__main__':
