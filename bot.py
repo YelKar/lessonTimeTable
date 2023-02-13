@@ -174,6 +174,7 @@ def weekday_callback(call: CallbackQuery):
 
 @bot.callback_query_handler(lambda call: call.data.startswith("download_json"))
 def download_json_examples(call: CallbackQuery):
+    # TODO добавить возможность скачать моё расписание
     bot.send_document(call.from_user.id, InputFile("./util/json_examples/example.json"))
 
 
