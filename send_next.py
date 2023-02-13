@@ -15,6 +15,7 @@ db = Next()
 
 
 def send_next():
+    # TODO создать историю, чтобы один урок не присылался два раза
     next_lesson = None
     for row in db.get():
         user_id = row["id"]
