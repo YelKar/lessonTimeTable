@@ -17,12 +17,12 @@ db = Next()
 
 
 def send_next(*user_ids):
-    # TODO создать историю, чтобы один урок не присылался два раза
     if user_ids:
         rows = [
             {
                 "id": user_id,
-                "timetable": table
+                "timetable": table,
+                "last": None
              } for user_id, table in zip(user_ids, tables.get(*user_ids, res_type=list))
         ]
     else:
@@ -31,7 +31,10 @@ def send_next(*user_ids):
     for row in rows:
         user_id = row["id"]
         table = row["timetable"]
+        last = row["last"]
         if table and (next_lesson := table.next()) and next_lesson.start > table.today().start:
+            if next_lesson.to_json(is_short=True) == last:
+                continue
             bot.send_message(
                 user_id,
                 lesson(
@@ -40,6 +43,9 @@ def send_next(*user_ids):
                     "Напоминание\nСледующий урок:\n"
                 )
             )
+            db.set_last(user_id, next_lesson)
+        elif last:
+            db.set_last(user_id, next_lesson)
 
 
 if __name__ == '__main__':

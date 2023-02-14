@@ -222,15 +222,5 @@ def chose_send_next_mode(call: CallbackQuery):
                 ["Напоминания отключены", "Напоминания включены"][db.is_set(chat_id)]
             )
         case "test":
-            table = tables.get(chat_id)
-            next_lesson_ = None
-            if table and (next_lesson_ := table.next()) and next_lesson_.start > table.today().start:
-                bot.send_message(
-                    chat_id,
-                    response.lesson(next_lesson_, "Напоминание\nСледующий урок:\n")
-                )
-            else:
-                bot.send_message(
-                    chat_id,
-                    "Урока нет. В таком случае напоминание не придет."
-                )
+            from send_next import send_next
+            send_next(chat_id)

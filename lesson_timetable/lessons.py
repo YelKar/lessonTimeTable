@@ -1,3 +1,4 @@
+import json
 from datetime import time, timedelta, datetime
 from typing import Self
 
@@ -21,6 +22,33 @@ class Lesson:
         self.teacher: str = teacher
         self.classroom: int = classroom
 
+    def to_json(self, is_short: bool = False, _type: type = list):
+        start = self.start.strftime("%H:%M")
+        duration = self.duration.seconds // 60
+        if _type is list:
+            res = [
+                self.name,
+                start,
+                duration
+            ]
+            if not is_short:
+                res.append(self.teacher)
+                res.append(self.classroom)
+        elif _type is dict:
+            res = {
+                "name": self.name,
+                "start": start,
+                "duration": duration,
+            }
+            if not is_short:
+                res.update({
+                    "teacher": self.teacher,
+                    "classroom": self.classroom
+                })
+        else:
+            return None
+        return json.dumps(res, ensure_ascii=False)
+
     def __repr__(self):
         return f"<Lesson {self}>"
 
@@ -38,4 +66,5 @@ class Lesson:
 
 
 if __name__ == '__main__':
-    print(Lesson("Икт", time(10, 20)))
+    lesson = Lesson("Икт", time(10, 20))
+    print(lesson.to_json(is_short=True))

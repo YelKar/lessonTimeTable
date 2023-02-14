@@ -81,12 +81,12 @@ class Next(DB):
             driver.wait(fail_fast=True, timeout=5)
             session = driver.table_client.session().create()
 
-            resp: _ResultSet = session.transaction().execute(
+            resp: list[_ResultSet] = session.transaction().execute(
                 self.query("sendNext"),
                 commit_tx=True
-            )[0]
-        for row in resp.rows:
-            yield dict(id=row["id"], timetable=TimeTable.de_json(row["timetable"]))
+            )[:2]
+        for table, last in zip(resp[0].rows, resp[1].rows):
+            yield dict(id=table["id"], timetable=TimeTable.de_json(table["timetable"]), last=last["last"])
 
     def add(self, user_id):
         with ydb.Driver(self.driver_config) as driver:
@@ -116,11 +116,29 @@ class Next(DB):
             )[0]
             return resp.rows is not None
 
+    def set_last(self, user_id, lesson):
+        with ydb.Driver(self.driver_config) as driver:
+            driver.wait(fail_fast=True, timeout=5)
+            session = driver.table_client.session().create()
+            session.transaction().execute(
+                session.prepare(
+                    "DECLARE $json AS JSON;\n"
+                    "DECLARE $id AS Uint64;\n"
+                    f"REPLACE INTO `send_next` (id, last) VALUES ($id, $json);"
+                ),
+                {
+                    "$id": user_id,
+                    "$json": "null" if lesson is None else lesson.to_json(is_short=True),
+                },
+                commit_tx=True
+            )
+
 
 if __name__ == '__main__':
+    from lesson_timetable.lessons import Lesson
+    from datetime import time
     os.chdir("../")
     send_next = Next()
     # print(*send_next.get(), sep="\n\n\n")
     print(send_next.is_set(1884965431))
-    tables = Tables()
-    print(tables.get(1884965431, res_type=list[str]))
+    send_next.set_last(1884965431, Lesson("qwerty", time(22)))
