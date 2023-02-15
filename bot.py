@@ -18,6 +18,8 @@ bot = TeleBot(os.getenv("TOKEN"), parse_mode="HTML")
 
 tables = Tables()
 
+# @todo Добавить перечень уроков на день
+# @todo Добавить пользователей
 
 @bot.message_handler(commands=["start", "help", "h"])
 def start(message: Message):
