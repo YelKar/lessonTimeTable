@@ -1,8 +1,12 @@
-from datetime import time
+import json
 
+if __name__ == '__main__':
+    from dotenv import load_dotenv
+    load_dotenv(".env")
 from lesson_timetable.days import Day as _Day
 from lesson_timetable.lessons import Lesson as _Lesson
 from lesson_timetable.table import TimeTable
+from util.db import DB
 
 
 def week(_table: TimeTable, head: str | None = None):
@@ -21,9 +25,30 @@ def day(_day: _Day, head: str | None = None):
     )
 
 
+def day_list(
+        user_id: int,
+        day_name: str,
+        head: str | None = None
+):
+    resp = DB.sql_query(query_name="dayList", user_id=user_id, day=day_name)
+    lessons = json.loads(resp[0].rows[0]['lessons'])
+    day_ru = TimeTable.days_ru[TimeTable.days_en.index(day_name)]
+    return (
+        (f"<b><u>{head}</u></b>\n" if head else "") +
+        f"<b><u>{day_ru}</u></b>\n\n" +
+        "\n".join(
+            [
+                f"{i}. " + lesson_name
+                for i, lesson_name
+                in enumerate(lessons, 1)
+            ]
+        )
+    )
+
+
 def lesson(_lesson: _Lesson, head: str | None = None):
-    # Не отображать секунды
-    # Добавить строковые переменные
+    # TODO Не отображать секунды
+    # TODO Добавить строковые переменные
     if not _lesson:
         return ""
     res = {
@@ -40,5 +65,7 @@ def lesson(_lesson: _Lesson, head: str | None = None):
 
 
 if __name__ == '__main__':
-    from gen_table import table
-    print(table.next_workday()[:time(23)])
+    from dotenv import load_dotenv
+    # load_dotenv(".env")
+    DB.route = "." + DB.route
+    print(day_list(1884965431, day_name="monday"))

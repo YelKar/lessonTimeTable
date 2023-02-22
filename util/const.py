@@ -1,3 +1,5 @@
+from datetime import timedelta, timezone
+
 START = (
     "Справка\n"
     "/now - Текущий урок\n"
@@ -43,5 +45,7 @@ json_msg = (
     "по которому вы сможете заполнить расписание.\n\n"
     "<u><b>Также бот реагирует на редактирование подписи к файлу.</b></u>"
 )
+
+moscow_timezone = timezone(timedelta(hours=3))
 
 my_id = 1884965431

@@ -1,0 +1,12 @@
+DECLARE $day as Utf8;
+DECLARE $user_id as Uint64;
+
+SELECT
+    id,
+    JSON_QUERY(
+        CAST(timetable as JSON),
+        "lax ($.keyvalue() ? (@.name == $day)).value[*][0]"
+        PASSING $day as day
+        WITH CONDITIONAL WRAPPER
+    ) as lessons
+FROM `tables` where id=$user_id;

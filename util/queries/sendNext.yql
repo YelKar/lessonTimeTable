@@ -1,5 +1,5 @@
-$ids = (SELECT id FROM `send_next`);
+$ids = (SELECT id FROM `reminds/next_lesson`);
 
 
 SELECT * FROM `tables` WHERE id IN $ids AND timetable is not NULL;
-SELECT last FROM `send_next`;
+SELECT last FROM `reminds/next_lesson`;

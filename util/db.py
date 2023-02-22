@@ -1,7 +1,8 @@
 import os
+from typing import overload, Any
 
 import ydb.iam
-from ydb.convert import _ResultSet
+from ydb.convert import _ResultSet, ResultSets
 
 from lesson_timetable.table import TimeTable
 
@@ -19,18 +20,61 @@ config = {
 
 
 class DB:
-    def __init__(self, driver_config: ydb.DriverConfig | None = None):
-        self.driver_config = driver_config or ydb.DriverConfig(
-            **config,
-            credentials=ydb.iam.ServiceAccountCredentials.from_file(
-                os.getenv("SA_KEY_FILE"),
-            ),
-            root_certificates=ydb.load_ydb_root_certificate()
-        )
-        self.route = "./util/queries/{name}.yql"
+    driver_config = ydb.DriverConfig(
+        **config,
+        credentials=ydb.iam.ServiceAccountCredentials.from_file(
+            os.getenv("SA_KEY_FILE"),
+        ),
+        root_certificates=ydb.load_ydb_root_certificate()
+    )
+    route = "./util/queries/{name}.yql"
 
-    def query(self, name: str):
-        with open(self.route.format(name=name), "r", encoding="utf-8") as file:
+    @classmethod
+    @overload
+    def sql_query(cls, *, query: str) -> ResultSets: ...
+
+    @classmethod
+    @overload
+    def sql_query(cls, *, query_name: str) -> ResultSets: ...
+
+    @classmethod
+    @overload
+    def sql_query(cls, *, query: str, **params: Any) -> ResultSets: ...
+
+    @classmethod
+    @overload
+    def sql_query(cls, *, query_name: str, **params: Any) -> ResultSets: ...
+
+    @classmethod
+    def sql_query(
+            cls,
+            *,
+            query: str | None = None,
+            query_name: str | None = None,
+            **params
+    ):
+        if query_name is not None:
+            query = cls.get_query(query_name)
+        elif query is None:
+            raise ValueError("missing query text")
+        with ydb.Driver(cls.driver_config) as driver:
+            driver.wait(fail_fast=True, timeout=5)
+            session = driver.table_client.session().create()
+            compiled_query = session.prepare(query) if params else query
+            return session.transaction().execute(
+                compiled_query,
+                {
+                    "$"+k: v for k, v in params.items()
+                },
+                commit_tx=True
+            )
+
+    def __init__(self, driver_config: ydb.DriverConfig | None = None):
+        self.driver_config = driver_config or self.driver_config
+
+    @classmethod
+    def get_query(cls, name: str):
+        with open(cls.route.format(name=name), "r", encoding="utf-8") as file:
             return file.read().strip()
 
 
@@ -39,7 +83,7 @@ class Tables(DB):
         with ydb.Driver(self.driver_config) as driver:
             driver.wait(fail_fast=True, timeout=5)
             session = driver.table_client.session().create()
-            compiled_query = session.prepare(self.query("setTable"))
+            compiled_query = session.prepare(self.get_query("setTable"))
             session.transaction().execute(
                 compiled_query,
                 {
@@ -75,14 +119,16 @@ class Tables(DB):
             return table
 
 
-class Next(DB):
+class NextLesson(DB):
+    path = "reminds/next_lesson"
+
     def get(self):
         with ydb.Driver(self.driver_config) as driver:
             driver.wait(fail_fast=True, timeout=5)
             session = driver.table_client.session().create()
 
             resp: list[_ResultSet] = session.transaction().execute(
-                self.query("sendNext"),
+                self.get_query("sendNext"),
                 commit_tx=True
             )[:2]
         for table, last in zip(resp[0].rows, resp[1].rows):
@@ -93,7 +139,7 @@ class Next(DB):
             driver.wait(fail_fast=True, timeout=5)
             session = driver.table_client.session().create()
             session.transaction().execute(
-                f"REPLACE INTO `send_next` (id) VALUES ({user_id});",
+                f"REPLACE INTO `{self.path}` (id) VALUES ({user_id});",
                 commit_tx=True
             )
 
@@ -102,7 +148,7 @@ class Next(DB):
             driver.wait(fail_fast=True, timeout=5)
             session = driver.table_client.session().create()
             session.transaction().execute(
-                f"DELETE FROM `send_next` WHERE id in {tuple(user_ids)};",
+                f"DELETE FROM `{self.path}` WHERE id in {tuple(user_ids)};",
                 commit_tx=True
             )
 
@@ -111,7 +157,7 @@ class Next(DB):
             driver.wait(fail_fast=True, timeout=5)
             session = driver.table_client.session().create()
             resp: _ResultSet = session.transaction().execute(
-                f"SELECT id FROM `send_next` WHERE id = {user_id};",
+                f"SELECT id FROM `{self.path}` WHERE id = {user_id};",
                 commit_tx=True
             )[0]
             return resp.rows is not None
@@ -124,7 +170,7 @@ class Next(DB):
                 session.prepare(
                     "DECLARE $json AS JSON;\n"
                     "DECLARE $id AS Uint64;\n"
-                    f"REPLACE INTO `send_next` (id, last) VALUES ($id, $json);"
+                    f"REPLACE INTO `{self.path}` (id, last) VALUES ($id, $json);"
                 ),
                 {
                     "$id": user_id,
@@ -138,7 +184,7 @@ if __name__ == '__main__':
     from lesson_timetable.lessons import Lesson
     from datetime import time
     os.chdir("../")
-    send_next = Next()
+    send_next = NextLesson()
     # print(*send_next.get(), sep="\n\n\n")
     print(send_next.is_set(1884965431))
     send_next.set_last(1884965431, Lesson("qwerty", time(22)))

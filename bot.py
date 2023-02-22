@@ -7,7 +7,7 @@ from telebot.types import Message, CallbackQuery, InputFile
 
 from util import response
 from util.const import START, json_msg, json_for_msg, remind_doc
-from util.db import Tables, Next
+from util.db import Tables, NextLesson
 from util.tools import KeyBoard, default_table
 
 from lesson_timetable.table import TimeTable, DecodeError
@@ -203,7 +203,7 @@ def remind(message: Message):
 
 @bot.callback_query_handler(lambda call: call.data.endswith("remind"))
 def chose_send_next_mode(call: CallbackQuery):
-    db = Next()
+    db = NextLesson()
     chat_id = call.from_user.id
     match call.data.split("_")[0]:
         case "set":
@@ -222,5 +222,5 @@ def chose_send_next_mode(call: CallbackQuery):
                 ["Напоминания отключены", "Напоминания включены"][db.is_set(chat_id)]
             )
         case "test":
-            from send_next import send_next
+            from reminds import send_next
             send_next(chat_id)

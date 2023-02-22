@@ -10,7 +10,7 @@ def default_table() -> TimeTable:
 
 def _chunks(_iter: Sized, step: int):
     for i in range(0, len(_iter), step):
-        yield _iter[i:i + step]
+        yield _iter[i:i+step]
 
 
 class KeyBoard:

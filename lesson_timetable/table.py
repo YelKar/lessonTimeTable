@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from datetime import time, timedelta, timezone, datetime
 
 from typing import Optional, Dict
+from util.const import moscow_timezone
 
 
 @dataclass
@@ -17,8 +18,8 @@ class TimeTable:
     saturday: Optional[__Day] = None
     sunday: Optional[__Day] = None
 
-    timezone: timezone = timezone(timedelta(hours=3))
-    __days = [
+    timezone: timezone = moscow_timezone
+    days_en = [
         "monday",
         "tuesday",
         "wednesday",
@@ -27,7 +28,7 @@ class TimeTable:
         "saturday",
         "sunday",
     ]
-    __days_ru = [
+    days_ru = [
         "Понедельник",
         "Вторник",
         "Среда",
@@ -40,11 +41,11 @@ class TimeTable:
     def __post_init__(self):
         for name, day in self.dict.items():
             if not day.name:
-                day.name = self.__days_ru[self.__days.index(name)]
+                day.name = self.days_ru[self.days_en.index(name)]
 
     @property
     def dict(self):
-        return {k: v for k, v in zip(self.__days, self.__dict__.values()) if v is not None}
+        return {k: v for k, v in zip(self.days_en, self.__dict__.values()) if v is not None}
 
     def __iter__(self):
         return iter(self.dict.values())
@@ -53,11 +54,11 @@ class TimeTable:
         if isinstance(item, int):
             if item > 6:
                 raise IndexError("there are only seven days in a week")
-            return self[self.__days[item]]
+            return self[self.days_en[item]]
 
         days = self.dict
         if item not in days:
-            if item in self.__days:
+            if item in self.days_en:
                 raise EmptyDayError(item)
             else:
                 raise KeyError(item)
@@ -86,16 +87,16 @@ class TimeTable:
 
     def today(self, now: datetime | None = None) -> __Day:
         now = now or datetime.now(self.timezone)
-        return self.get(self.__days[now.weekday()])
+        return self.get(self.days_en[now.weekday()])
 
     def tomorrow(self, now: datetime | None = None) -> __Day:
         now = now or datetime.now(self.timezone)
-        return self.get(self.__days[(now.weekday() + 1) % 7])
+        return self.get(self.days_en[(now.weekday() + 1) % 7])
 
     def next_workday(self, now: datetime | None = None) -> __Day:
         now = now or datetime.now(self.timezone)
         for add in range(1, 8):
-            day = self.get(self.__days[(now.weekday() + add) % 7])
+            day = self.get(self.days_en[(now.weekday() + add) % 7])
             if day:
                 return day
 
@@ -108,7 +109,7 @@ class TimeTable:
                 raise DecodeError(e.msg, e.doc, e.pos)
 
         for name, day in json_table.items():
-            if name not in cls.__days:
+            if name not in cls.days_en:
                 continue
             for i, lesson in enumerate(day):
                 for _ in range(5 - len(lesson)):

@@ -1,0 +1,12 @@
+DECLARE $day as Utf8;
+$user_ids = (SELECT id FROM `reminds/today`);
+
+SELECT
+    id,
+    JSON_QUERY(
+        CAST(timetable as JSON),
+        "lax ($.keyvalue() ? (@.name == $day)).value[*][0]"
+        PASSING $day as day
+        WITH CONDITIONAL WRAPPER
+    ) as lessons
+FROM `tables` where id in $user_ids;
