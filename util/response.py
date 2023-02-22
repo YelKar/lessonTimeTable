@@ -1,4 +1,5 @@
 import json
+from datetime import time
 
 if __name__ == '__main__':
     from dotenv import load_dotenv
@@ -47,21 +48,25 @@ def day_list(
 
 
 def lesson(_lesson: _Lesson, head: str | None = None):
-    # TODO Не отображать секунды
     # TODO Добавить строковые переменные
     if not _lesson:
         return ""
-    res = {
-        k: (v if v is not None else "____")
-        for k, v in _lesson.__dict__.items()
-    }
+
+    def res():
+        for k, v in _lesson.__dict__.items():
+            if isinstance(v, time):
+                yield k, v.strftime("%H:%M")
+            elif v is not None:
+                yield k, v
+            else:
+                yield k, "____"
     return (
         (f"<b><u>{head}</u></b>\n" if head else "") +
         ("<u>{name}</u>\n" if _lesson.name else "Название не указано\n") +
         "{start} - {stop}\n" +
         ("{teacher}\n" if _lesson.teacher else "") +
         ("Кабинет: {classroom}\n" if _lesson.classroom else "")
-    ).format(**res)
+    ).format(**dict(res()))
 
 
 if __name__ == '__main__':

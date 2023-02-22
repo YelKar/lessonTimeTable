@@ -9,7 +9,7 @@ class Lesson:
             name: str,
             start: time,
             teacher=None,
-            classroom: int | None = None,
+            classroom: int | str | None = None,
             duration: timedelta | int | None = None
     ):
         if isinstance(duration, int):
@@ -20,7 +20,7 @@ class Lesson:
         self.start: time = start
         self.stop: time = (datetime.combine(datetime.now(), self.start) + self.duration).time()
         self.teacher: str = teacher
-        self.classroom: int = classroom
+        self.classroom: int | str = classroom
 
     def to_json(self, is_short: bool = False, _type: type = list):
         start = self.start.strftime("%H:%M")
