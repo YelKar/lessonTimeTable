@@ -1,2 +1,0 @@
-# lessonTimeTable
-[ ] Add delight
