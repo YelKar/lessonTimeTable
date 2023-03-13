@@ -27,6 +27,7 @@ def start(message: Message):
     if table is None:
         table = default_table()
         tables.set(message.from_user.id, table)
+        # TODO Создание пользователя
     kb = KeyBoard.weekdays(table)
     bot.send_message(message.chat.id, START, reply_markup=kb)
 
